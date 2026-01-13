@@ -66,36 +66,52 @@
         .btn:active { background: #222; transform: translateY(2px); }
         .btn-on { border-color: #00FF00; color: #00FF00; background: rgba(0,20,0,0.3); }
 
+        /* --- 地震卡片樣式修正 --- */
         #quakeArea { 
             margin-bottom: 20px; display: none; cursor: pointer;
             transition: transform 0.1s;
         }
         .quake-card {
             display: block; border: 2px solid var(--quake-color); color: var(--quake-color);
-            padding: 15px; position: relative;
-            background: rgba(50, 10, 0, 0.2); box-shadow: 0 0 8px rgba(255, 69, 0, 0.2);
-            /* 修復：防止內容溢出 */
-            overflow: hidden;
+            padding: 20px 15px 15px 15px; /* 上方加寬給標籤 */
+            position: relative;
+            background: rgba(50, 10, 0, 0.2); 
+            box-shadow: 0 0 8px rgba(255, 69, 0, 0.2);
+            overflow: hidden; /* 防止內容撐開 */
         }
         .quake-card:active { transform: scale(0.98); background: rgba(80, 20, 0, 0.3); }
+        
         .quake-card::before {
-            content: "[ ⚠️ SEISMIC_ALERT // TAP FOR MAP ]";
+            content: "[ ⚠️ SEISMIC_ALERT ]";
             position: absolute; top: -10px; left: 10px;
             background: var(--bg-color); padding: 0 5px; font-weight: bold; font-size: 0.8rem;
             border: 1px solid var(--quake-color);
         }
-        .quake-card::after { content: "↗"; position: absolute; top: 5px; right: 10px; font-size: 1.5rem; opacity: 0.5; }
-        .quake-main { font-size: 1.3rem; font-weight: bold; margin: 8px 0; }
-        
-        /* 修復核心：加入 word-break 防止長字串撐開版面 */
-        .quake-details {
-            font-size: 0.95rem; opacity: 0.9; margin-top: 10px; padding-top: 10px;
-            border-top: 1px dashed var(--quake-dim); line-height: 1.6; 
-            white-space: pre-wrap;
-            word-break: break-word; 
-            overflow-wrap: break-word;
+        /* 箭頭位置與樣式 */
+        .quake-card::after { 
+            content: "↗"; position: absolute; top: 5px; right: 5px; 
+            font-size: 1.5rem; opacity: 0.5; pointer-events: none;
         }
-        .alert-blink { animation: rapid-blink 1.5s infinite; }
+
+        .quake-header-row {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            margin-bottom: 8px; font-size: 0.8rem;
+            padding-right: 20px; /* 避開箭頭 */
+        }
+
+        .quake-main { font-size: 1.4rem; font-weight: bold; margin: 5px 0 10px 0; line-height: 1.2; }
+        
+        /* 修正文字溢出與斷行 */
+        .quake-details {
+            font-size: 0.95rem; opacity: 0.9; 
+            padding-top: 10px;
+            border-top: 1px dashed var(--quake-dim); 
+            line-height: 1.5; 
+            white-space: pre-wrap;       /* 保留換行 */
+            word-break: break-all;       /* 強制在邊界斷行 */
+            overflow-wrap: break-word;   /* 現代瀏覽器支援 */
+        }
+        .alert-blink { animation: rapid-blink 1.5s infinite; color: #FF4500; font-weight: bold; }
         @keyframes rapid-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
         .control-group { margin-bottom: 15px; }
@@ -138,7 +154,13 @@
         
         .blink { animation: blinker 1s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
-        .error-msg { color: #FF5555; border: 1px solid #FF5555; padding: 10px; font-size: 0.9rem; margin-top: 10px; word-break: break-all; }
+        /* 錯誤訊息樣式優化 */
+        .error-msg { 
+            color: #FF5555; border: 1px solid #FF5555; 
+            background: rgba(50,0,0,0.5);
+            padding: 10px; font-size: 0.9rem; margin-top: 10px; 
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -181,12 +203,9 @@
     </footer>
 
     <script>
-        // 注意：API KEY 需確保有效且未達請求上限
+        // API KEY (請確認此 Key 是否有效)
         const API_KEY = 'CWA-30E05081-14C2-4DAE-831E-2796BEDC3575';
         
-        // ============================
-        // 🛠️ 預設地點設定
-        // ============================
         const DEFAULT_CITY = "臺北市";
         const DEFAULT_DIST = "中山區";
 
@@ -223,10 +242,8 @@
         const monitorStatus = document.getElementById('monitorStatus');
         const enableBtn = document.getElementById('enableBtn');
 
-        // --- 初始化 ---
         async function init() {
             try {
-                // 1. 建立縣市選單
                 citySelect.innerHTML = '';
                 CITY_ORDER.forEach(c => {
                     const opt = document.createElement('option');
@@ -234,16 +251,10 @@
                     citySelect.appendChild(opt);
                 });
 
-                // 2. 設定預設城市
                 citySelect.value = DEFAULT_CITY;
-
-                // 3. 背景抓取地震資料
                 fetchQuake(false); 
-
-                // 4. 下載預設城市資料
                 await loadCityData(DEFAULT_CITY, DEFAULT_DIST);
 
-                // 5. 綁定事件
                 citySelect.addEventListener('change', async (e) => {
                     await loadCityData(e.target.value);
                 });
@@ -257,7 +268,7 @@
             }
         }
 
-        // --- 動態載入：加入更強的錯誤處理 ---
+        // --- 修正後的資料載入函式 (更安全的錯誤處理) ---
         async function loadCityData(cityName, targetDist = null) {
             const dataId = CITY_API_MAP[cityName];
             if(!dataId) return;
@@ -272,24 +283,30 @@
             distSelect.innerHTML = `<option>LOADING...</option>`;
 
             try {
-                const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataId}?Authorization=${API_KEY}&format=JSON&elementName=Wx,T,PoP12h,AT`;
+                // 不使用 elementName 過濾，避免結構遺失導致錯誤
+                const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataId}?Authorization=${API_KEY}&format=JSON`;
+                
                 const res = await fetch(url);
-                if(!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                if(!res.ok) throw new Error(`HTTP Error: ${res.status}`);
                 
                 const data = await res.json();
                 
-                // 修復：加入 Optional Chaining (?.) 避免結構錯誤導致崩潰
+                // 使用 Optional Chaining (?.) 防止崩潰
                 if (data.success === "true" && data.records?.locations?.[0]?.location) {
                     currentCityData = data.records.locations[0].location;
                     loadedCities[cityName] = currentCityData;
                     populateDistricts(cityName, targetDist);
                 } else {
-                    throw new Error("API Structure Mismatch or Empty");
+                    throw new Error("API Data Structure Mismatch");
                 }
             } catch (err) {
                 console.error(err);
-                // 顯示具體的錯誤原因以便除錯
-                displayEl.innerHTML = `<div class="error-msg">DATA ERROR: 無法讀取 ${cityName}<br><small>${err.message}</small></div>`;
+                // 顯示更詳細的錯誤原因
+                displayEl.innerHTML = `
+                    <div class="error-msg">
+                        DATA ERROR: 無法連線 ${cityName}<br>
+                        <span style="font-size:0.8rem; opacity:0.8">REASON: ${err.message}</span>
+                    </div>`;
                 distSelect.innerHTML = `<option>ERROR</option>`;
             }
         }
@@ -297,7 +314,6 @@
         function populateDistricts(cityName, targetDist) {
             distSelect.innerHTML = '';
             
-            // 確保資料存在再 map
             if (!currentCityData || currentCityData.length === 0) {
                 distSelect.innerHTML = '<option>NO DATA</option>';
                 return;
@@ -345,7 +361,7 @@
                 const h = startTime.getHours().toString().padStart(2,'0');
                 const m = startTime.getMinutes().toString().padStart(2,'0');
                 
-                // 使用 Optional Chaining 確保數值存在
+                // 安全讀取數值
                 const wx = elements['Wx']?.[i]?.elementValue?.[0]?.value || "-";
                 const temp = elements['T']?.[i]?.elementValue?.[0]?.value || "-";
                 const feel = elements['AT']?.[i]?.elementValue?.[0]?.value || "-";
@@ -374,7 +390,6 @@
             displayEl.innerHTML = html;
         }
 
-        // --- 監控與警報系統 ---
         function startMonitor() {
             if(isMonitorActive) return;
             if ("Notification" in window && Notification.permission !== "granted") Notification.requestPermission();
@@ -395,7 +410,7 @@
 
         function testAlert() {
             if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-            triggerAlert({ EarthquakeMagnitude: { MagnitudeValue: "TEST" }, Epicenter: { Location: "系統測試" } }, "測試警報音效與通知");
+            triggerAlert({ EarthquakeMagnitude: { MagnitudeValue: "TEST" }, Epicenter: { Location: "系統測試" } }, "這是一則測試警報，用來確認版面排版是否正常。\n文字應該會自動換行而不會超出邊框。");
         }
 
         function triggerAlert(info, content) {
@@ -448,9 +463,9 @@
             const time = new Date(info.OriginTime).toLocaleString('zh-TW', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
             quakeEl.href = q.Web || "https://www.cwa.gov.tw/V8/C/E/index.html";
             quakeEl.innerHTML = `
-                <div style="font-size:0.8rem; margin-bottom:5px; display:flex; justify-content:space-between;">
+                <div class="quake-header-row">
                     <span class="alert-blink">⚠️ LATEST REPORT</span>
-                    <span>${time}</span>
+                    <span style="font-weight:bold">${time}</span>
                 </div>
                 <div class="quake-main">M${info.EarthquakeMagnitude.MagnitudeValue} | Depth ${info.FocalDepth}km</div>
                 <div class="quake-details">${q.ReportContent}</div>`;
