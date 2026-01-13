@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <title>WEATHER_DASHBOARD_V5</title>
+    <title>WEATHER_OS_V6</title>
     <style>
-        /* --- V5.0: 戰情儀表板版 --- */
+        /* --- V6.0: 預設台北中山版 --- */
         :root {
             --bg-color: #000000;
             --weather-color: #00E1FF;
@@ -44,8 +44,8 @@
             display: flex; justify-content: space-between; align-items: flex-end;
         }
         h1 { font-size: 1.2rem; margin: 0; }
-        
         .sys-info { font-size: 0.7rem; color: var(--weather-dim); text-align: right; }
+        
         .monitor-badge {
             display: inline-block; font-size: 0.7rem; padding: 2px 6px; 
             border: 1px solid #333; color: #555; margin-top: 5px; transition: all 0.3s;
@@ -95,71 +95,57 @@
         .alert-blink { animation: rapid-blink 1.5s infinite; }
         @keyframes rapid-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        /* 儀表板區域 */
-        .dashboard-grid { display: flex; flex-direction: column; gap: 15px; }
+        /* 選單區 */
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.8rem; margin-bottom: 3px; color: var(--weather-dim); }
+        .select-row { display: flex; gap: 10px; }
         
-        .dashboard-label {
-            color: var(--weather-dim); font-size: 0.8rem; margin-bottom: 5px;
-            border-bottom: 1px solid #333; padding-bottom: 5px;
+        select {
+            background-color: #051a24; color: var(--weather-color);
+            border: 1px solid var(--weather-color); padding: 10px; width: 100%;
+            font-family: inherit; font-size: 1rem; border-radius: 0; outline: none; -webkit-appearance: none; 
         }
 
-        .location-section {
-            border: 1px solid var(--weather-dim);
-            background: rgba(0, 30, 40, 0.2);
-            padding: 10px;
-        }
-        
+        /* 顯示區 */
         .location-header {
             font-size: 1.1rem; border-left: 4px solid var(--weather-color);
-            padding-left: 10px; margin-bottom: 10px; color: #fff;
-            display: flex; justify-content: space-between; align-items: center;
+            padding-left: 10px; margin: 20px 0 10px 0; color: #fff;
         }
-
-        /* 卡片容器 */
-        .cards-row {
-            display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px;
-        }
-        /* 隱藏捲軸但保留功能 */
-        .cards-row::-webkit-scrollbar { display: none; }
 
         .forecast-card {
-            min-width: 120px; /* 固定寬度讓卡片整齊 */
-            border: 1px solid var(--weather-dim);
-            padding: 10px; position: relative;
-            background: rgba(0,0,0,0.5);
-            flex-shrink: 0;
+            border: 1px solid var(--weather-dim); padding: 12px; margin-bottom: 12px; position: relative;
         }
-        
+        .forecast-card::before {
+            content: attr(data-label); position: absolute; top: -10px; right: 10px;
+            background: var(--bg-color); color: var(--weather-dim); padding: 0 5px; font-size: 0.7rem;
+        }
         .time-badge {
             display: inline-block; background: var(--weather-dim);
-            color: #000; padding: 1px 5px; font-size: 0.7rem; font-weight: bold; margin-bottom: 5px;
+            color: #000; padding: 1px 5px; font-size: 0.8rem; font-weight: bold;
         }
-        .weather-main { font-size: 1.2rem; font-weight: bold; margin: 3px 0; }
+        .weather-main { font-size: 1.3rem; font-weight: bold; margin: 5px 0; }
         .details {
-            font-size: 0.85rem; color: #B2EBF2; margin-top: 5px; padding-left: 5px;
+            font-size: 0.95rem; color: #B2EBF2; margin-top: 5px; padding-left: 8px;
             border-left: 1px solid var(--weather-dim);
         }
         .highlight { color: #FFF; font-weight: bold; }
-        
+
         footer {
-            margin-top: 40px; font-size: 0.7rem; color: var(--weather-dim);
-            text-align: center; border-top: 1px solid #1A4D66; padding-top: 15px;
+            margin-top: 30px; font-size: 0.7rem; color: var(--weather-dim);
+            text-align: center; border-top: 1px solid #1A4D66; padding-top: 10px;
         }
         
         .blink { animation: blinker 1s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
-        .error-msg {
-            color: #FF5555; border: 1px solid #FF5555; padding: 10px; 
-            font-size: 0.8rem; margin-top: 20px;
-        }
+        .error-msg { color: #FF5555; border: 1px solid #FF5555; padding: 10px; font-size: 0.9rem; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>> WEATHER_OS_V5</h1>
+        <h1>> WEATHER_OS_V6</h1>
         <div class="sys-info">
-            MODE: DASHBOARD<br>
+            SYSTEM: STABLE<br>
             <span id="monitorStatus" class="monitor-badge">AUTO-SCAN: OFF</span>
         </div>
     </header>
@@ -171,32 +157,47 @@
 
     <a id="quakeArea" class="quake-card" href="#" target="_blank"></a>
 
-    <div class="dashboard-label">MY WATCHLIST (FILTERED)</div>
-    <div id="dashboardArea">
-        <div class="blink" style="color:var(--weather-dim)">INITIALIZING DASHBOARD...</div>
+    <div class="control-group">
+        <div class="select-row">
+            <div style="flex:1">
+                <label>SECTOR (CITY)</label>
+                <select id="citySelect"><option>LOADING...</option></select>
+            </div>
+            <div style="flex:1">
+                <label>SUB-SECTOR (DIST)</label>
+                <select id="distSelect"><option>WAITING...</option></select>
+            </div>
+        </div>
+    </div>
+
+    <div id="displayArea">
+        <div class="blink" style="color:var(--weather-dim)">INITIALIZING...</div>
     </div>
 
     <footer>
-        DATA: CWA API (Optimized)<br>
+        DATA: CWA API | REFRESH: 60s<br>
         UID: ...BEDC3575
     </footer>
 
     <script>
         const API_KEY = 'CWA-30E05081-14C2-4DAE-831E-2796BEDC3575';
+        
+        // ============================
+        // 🛠️ 預設地點設定 (在此修改)
+        // ============================
+        const DEFAULT_CITY = "臺北市";
+        const DEFAULT_DIST = "中山區";
 
-        // ==========================================
-        // 🛠️ 【關注清單設定區】請修改這裡！
-        // 格式: { city: "縣市名", dist: "鄉鎮區名" }
-        // ==========================================
-        const MY_WATCHLIST = [
-            { city: "臺北市", dist: "士林區" },
-            { city: "臺北市", dist: "信義區" },
-            { city: "新北市", dist: "淡水區" },
-            { city: "新北市", dist: "板橋區" },
-            { city: "高雄市", dist: "左營區" },
-            { city: "花蓮縣", dist: "花蓮市" }
-        ];
-        // ==========================================
+        // 系統變數
+        let lastQuakeNo = localStorage.getItem('lastQuakeNo') || "";
+        let isMonitorActive = false;
+        let autoScanTimer = null;
+        let currentCityData = null; // 暫存該縣市資料
+        
+        // 音效系統
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+        try { audioCtx = new AudioContext(); } catch(e) {}
 
         const CITY_API_MAP = {
             "宜蘭縣": "F-D0047-001", "桃園市": "F-D0047-005", "新竹縣": "F-D0047-009",
@@ -208,135 +209,143 @@
             "臺中市": "F-D0047-073", "臺南市": "F-D0047-077", "連江縣": "F-D0047-081",
             "金門縣": "F-D0047-085"
         };
+        const CITY_ORDER = [
+            "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣", "苗栗縣", 
+            "臺中市", "彰化縣", "南投縣", "雲林縣", "嘉義市", "嘉義縣", "臺南市", 
+            "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "澎湖縣", "金門縣", "連江縣"
+        ];
 
-        // 系統變數
-        let lastQuakeNo = localStorage.getItem('lastQuakeNo') || "";
-        let isMonitorActive = false;
-        let autoScanTimer = null;
-        let weatherResults = {}; // 暫存天氣資料
-
-        // 音效系統
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx;
-        try { audioCtx = new AudioContext(); } catch(e) { console.warn("Audio not supported"); }
-
-        const dashboardEl = document.getElementById('dashboardArea');
+        const citySelect = document.getElementById('citySelect');
+        const distSelect = document.getElementById('distSelect');
+        const displayEl = document.getElementById('displayArea');
         const quakeEl = document.getElementById('quakeArea');
         const monitorStatus = document.getElementById('monitorStatus');
         const enableBtn = document.getElementById('enableBtn');
 
         // --- 初始化 ---
         async function init() {
-            fetchQuake(false); // 抓地震
-            await loadDashboard(); // 抓天氣
+            try {
+                // 1. 建立縣市選單
+                citySelect.innerHTML = '';
+                CITY_ORDER.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c; opt.text = c;
+                    citySelect.appendChild(opt);
+                });
+
+                // 2. 強制設定為預設地點
+                citySelect.value = DEFAULT_CITY;
+
+                // 3. 雙軌執行：抓地震 + 抓預設城市資料
+                fetchQuake(false); 
+                
+                // 4. 下載資料，並指定預設顯示「中山區」
+                await loadCityData(DEFAULT_CITY, DEFAULT_DIST);
+
+                // 5. 綁定選單事件 (手動切換時)
+                citySelect.addEventListener('change', (e) => loadCityData(e.target.value));
+                distSelect.addEventListener('change', (e) => renderWeather(e.target.value));
+
+            } catch(e) {
+                console.error(e);
+                displayEl.innerHTML = `<div class="error-msg">INIT FAIL: ${e.message}</div>`;
+            }
         }
 
-        // --- 核心：智慧型批次下載 ---
-        async function loadDashboard() {
-            dashboardEl.innerHTML = '';
+        // --- 核心：下載指定縣市資料 ---
+        async function loadCityData(cityName, targetDist = null) {
+            const dataId = CITY_API_MAP[cityName];
+            if(!dataId) return;
             
-            // 1. 將清單依照「縣市」分組 (減少 API 請求次數)
-            // 格式轉換為: { "臺北市": ["士林區", "信義區"], "高雄市": ["左營區"] }
-            const cityGroups = {};
-            MY_WATCHLIST.forEach(item => {
-                if(!cityGroups[item.city]) cityGroups[item.city] = [];
-                cityGroups[item.city].push(item.dist);
-            });
+            if(!isMonitorActive) displayEl.innerHTML = `<div class="blink">DOWNLOADING [${cityName}]...</div>`;
+            distSelect.innerHTML = `<option>LOADING...</option>`;
 
-            // 2. 平行發送 API 請求 (每個縣市只發一次)
-            const promises = Object.keys(cityGroups).map(async (cityName) => {
-                const districts = cityGroups[cityName];
-                const dataId = CITY_API_MAP[cityName];
-                if(!dataId) return;
-
-                // ★ 關鍵：使用 locationName 參數進行過濾
-                const locationParam = districts.map(d => encodeURIComponent(d)).join(',');
-                const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataId}?Authorization=${API_KEY}&format=JSON&elementName=Wx,T,PoP12h,AT&locationName=${locationParam}`;
-
-                try {
-                    const res = await fetch(url);
-                    const data = await res.json();
-                    if(data.success === "true") {
-                        // 儲存資料以便稍後渲染
-                        data.records.locations[0].location.forEach(loc => {
-                            weatherResults[`${cityName}-${loc.locationName}`] = loc;
-                        });
-                    }
-                } catch(e) { console.error(`Failed to fetch ${cityName}`, e); }
-            });
-
-            // 3. 等待所有請求完成
-            await Promise.all(promises);
-
-            // 4. 依照使用者設定的順序渲染卡片
-            renderCards();
+            try {
+                // 下載該縣市「所有」鄉鎮的資料 (最穩定的做法)
+                const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataId}?Authorization=${API_KEY}&format=JSON&elementName=Wx,T,PoP12h,AT`;
+                const res = await fetch(url);
+                if(!res.ok) throw new Error("Network Error");
+                const data = await res.json();
+                
+                if (data.success === "true") {
+                    currentCityData = data.records.locations[0].location;
+                    populateDistricts(cityName, targetDist); // 填入選單並顯示
+                }
+            } catch (err) {
+                console.error(err);
+                displayEl.innerHTML = `<div class="error-msg">DATA ERROR: 無法連線</div>`;
+            }
         }
 
-        function renderCards() {
-            let fullHtml = '';
-
-            MY_WATCHLIST.forEach(item => {
-                const key = `${item.city}-${item.dist}`;
-                const locData = weatherResults[key];
-
-                if(!locData) {
-                    fullHtml += `<div class="location-section" style="border-color:#555; color:#888;">> ${item.city} ${item.dist} (無資料/讀取失敗)</div>`;
-                    return;
-                }
-
-                const elements = {};
-                locData.weatherElement.forEach(e => { elements[e.elementName] = e.time; });
-
-                // 產生橫向卡片 HTML
-                let cardsHTML = '';
-                const loopLimit = Math.min(3, elements['Wx'].length);
-
-                for(let i=0; i<loopLimit; i++) {
-                    const wxTime = elements['Wx'][i];
-                    const startTime = new Date(wxTime.startTime);
-                    const d = startTime.getDate().toString().padStart(2,'0');
-                    const h = startTime.getHours().toString().padStart(2,'0');
-                    
-                    const wx = elements['Wx'][i].elementValue[0].value;
-                    const temp = elements['T'][i].elementValue[0].value;
-                    const feel = elements['AT'][i].elementValue[0].value;
-                    
-                    // 降雨機率
-                    let pop = "0";
-                    if (elements['PoP12h']) {
-                        const pData = elements['PoP12h'].find(p => {
-                            const pStart = new Date(p.startTime);
-                            const pEnd = new Date(p.endTime);
-                            return (startTime >= pStart && startTime < pEnd) || (pStart >= startTime && pStart < new Date(wxTime.endTime));
-                        });
-                        pop = pData ? pData.elementValue[0].value : "-";
-                        if(pop === " " || pop === "") pop = "0";
-                    }
-
-                    cardsHTML += `
-                        <div class="forecast-card">
-                            <div class="time-badge">${d}日 ${h}時</div>
-                            <div class="weather-main">${wx}</div>
-                            <div class="details">
-                                溫度: <span class="highlight">${temp}°C</span><br>
-                                體感: ${feel}°C<br>
-                                降雨: <span class="highlight">${pop}%</span>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                fullHtml += `
-                    <div class="location-section">
-                        <div class="location-header">${item.city} ${item.dist}</div>
-                        <div class="cards-row">
-                            ${cardsHTML}
-                        </div>
-                    </div>
-                `;
+        // --- 填入鄉鎮選單 ---
+        function populateDistricts(cityName, targetDist) {
+            distSelect.innerHTML = '';
+            
+            // 產生所有鄉鎮選項
+            const districts = currentCityData.map(loc => loc.locationName);
+            districts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d; opt.text = d;
+                distSelect.appendChild(opt);
             });
 
-            dashboardEl.innerHTML = fullHtml || '<div class="error-msg">NO DATA FOUND</div>';
+            // 智慧選取：
+            // 如果有指定 targetDist (例如中山區) 且存在 -> 選它
+            // 否則 -> 選第一個
+            if (targetDist && districts.includes(targetDist)) {
+                distSelect.value = targetDist;
+            } else {
+                distSelect.selectedIndex = 0;
+            }
+
+            // 立即顯示天氣
+            renderWeather(distSelect.value);
+        }
+
+        // --- 顯示天氣 ---
+        function renderWeather(distName) {
+            const location = currentCityData.find(l => l.locationName === distName);
+            if (!location) return;
+
+            const elements = {};
+            location.weatherElement.forEach(e => { elements[e.elementName] = e.time; });
+
+            let html = `<div class="location-header">> ${citySelect.value} ${distName}</div>`;
+            const loopLimit = Math.min(3, elements['Wx'] ? elements['Wx'].length : 0);
+
+            for(let i=0; i<loopLimit; i++) {
+                const wxTime = elements['Wx'][i];
+                const startTime = new Date(wxTime.startTime);
+                const d = startTime.getDate().toString().padStart(2,'0');
+                const h = startTime.getHours().toString().padStart(2,'0');
+                const m = startTime.getMinutes().toString().padStart(2,'0');
+                
+                const wx = elements['Wx'][i].elementValue[0].value;
+                const temp = elements['T'][i].elementValue[0].value;
+                const feel = elements['AT'][i].elementValue[0].value;
+                
+                let pop = "0"; 
+                if (elements['PoP12h']) {
+                    const popData = elements['PoP12h'].find(p => {
+                        const pStart = new Date(p.startTime);
+                        const pEnd = new Date(p.endTime);
+                        return (startTime >= pStart && startTime < pEnd) || (pStart >= startTime && pStart < new Date(wxTime.endTime));
+                    });
+                    pop = popData ? popData.elementValue[0].value : "-";
+                    if(pop === " " || pop === "") pop = "0"; 
+                }
+
+                html += `
+                <div class="forecast-card" data-label="+${i*3}HR">
+                    <div class="time-badge">${d}日 ${h}:${m} 起</div>
+                    <div class="weather-main">${wx}</div>
+                    <div class="details">
+                        溫度: <span class="highlight">${temp}°C</span> (體感 ${feel}°C)<br>
+                        降雨機率: <span class="highlight">${pop}%</span>
+                    </div>
+                </div>`;
+            }
+            displayEl.innerHTML = html;
         }
 
         // --- 監控與警報系統 ---
@@ -355,8 +364,6 @@
             fetchQuake(true);
             autoScanTimer = setInterval(() => {
                 fetchQuake(true);
-                // 監控模式下，每 10 分鐘更新一次天氣即可
-                if(new Date().getMinutes() % 10 === 0) loadDashboard();
             }, 60000);
         }
 
