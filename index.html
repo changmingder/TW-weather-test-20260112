@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <title>TERMINAL_WEATHER_V4.1</title>
+    <title>TERMINAL_WEATHER_V4</title>
     <style>
-        /* --- V4.1: 監控警報最終版 --- */
+        /* --- V4.0: 監控警報版 --- */
         :root {
             --bg-color: #000000;
             --weather-color: #00E1FF;
@@ -25,10 +25,11 @@
             font-size: 16px; line-height: 1.4;
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
-            padding-bottom: 80px; /* 預留底部空間 */
+            transition: background-color 0.2s;
+            padding-bottom: 60px;
         }
 
-        /* 警報閃爍特效 */
+        /* 警報時的背景閃爍特效 */
         body.alarm-active { animation: red-flash 1s infinite; }
         @keyframes red-flash {
             0% { background-color: var(--bg-color); }
@@ -46,6 +47,7 @@
         }
         h1 { font-size: 1.2rem; margin: 0; }
         
+        /* 系統狀態 */
         .sys-info { font-size: 0.7rem; color: var(--weather-dim); text-align: right; }
         .monitor-badge {
             display: inline-block; font-size: 0.7rem; padding: 2px 6px; 
@@ -58,19 +60,20 @@
         }
         @keyframes pulse { 0% {opacity:1;} 50% {opacity:0.6;} 100% {opacity:1;} }
 
-        /* 按鈕區 */
+        /* --- 控制按鈕區 --- */
         .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
         .btn {
             flex: 1; padding: 12px;
             background: #111; color: var(--weather-dim);
             border: 1px dashed var(--weather-dim);
             font-family: inherit; font-size: 0.9rem; cursor: pointer;
-            text-transform: uppercase; border-radius: 4px; color: #fff;
+            text-transform: uppercase;
         }
-        .btn:active { background: #222; transform: translateY(2px); }
+        .btn:active { background: #222; }
+        /* 啟動後的按鈕樣式 */
         .btn-on { border-color: #00FF00; color: #00FF00; background: rgba(0,20,0,0.3); }
 
-        /* 地震區 */
+        /* --- 地震警報區 --- */
         #quakeArea { 
             margin-bottom: 20px; display: none; cursor: pointer;
             transition: transform 0.1s;
@@ -96,7 +99,7 @@
         .alert-blink { animation: rapid-blink 1.5s infinite; }
         @keyframes rapid-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        /* 選單與天氣 */
+        /* --- 選單與天氣 --- */
         .control-group { margin-bottom: 15px; }
         .select-row { display: flex; gap: 10px; }
         label { display: block; font-size: 0.8rem; margin-bottom: 3px; color: var(--weather-dim); }
@@ -133,17 +136,13 @@
         
         .blink { animation: blinker 1s linear infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
-        /* 錯誤訊息 */
-        .error-msg {
-            color: #FF5555; border: 1px solid #FF5555; padding: 10px; 
-            font-size: 0.8rem; margin-top: 20px; word-break: break-all;
-        }
+        .error-msg { color: #FF5555; border: 1px solid #FF5555; padding: 10px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>> WEATHER_OS_V4.1</h1>
+        <h1>> WEATHER_OS_V4</h1>
         <div class="sys-info">
             SYSTEM: ONLINE<br>
             <span id="monitorStatus" class="monitor-badge">AUTO-SCAN: OFF</span>
@@ -171,7 +170,7 @@
     </div>
 
     <div id="displayArea">
-        <div class="blink" style="color:var(--weather-dim)">INITIALIZING...</div>
+        <div class="blink" style="color:var(--weather-dim)">INITIALIZING SYSTEM...</div>
     </div>
 
     <footer>
@@ -182,14 +181,14 @@
     <script>
         const API_KEY = 'CWA-30E05081-14C2-4DAE-831E-2796BEDC3575';
         
+        // 變數
         let lastQuakeNo = localStorage.getItem('lastQuakeNo') || "";
         let isMonitorActive = false;
         let autoScanTimer = null;
         
         // 音效系統
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx;
-        try { audioCtx = new AudioContext(); } catch(e) { console.warn("Audio not supported"); }
+        let audioCtx = new AudioContext();
 
         const CITY_API_MAP = {
             "宜蘭縣": "F-D0047-001", "桃園市": "F-D0047-005", "新竹縣": "F-D0047-009",
@@ -214,46 +213,51 @@
         const monitorStatus = document.getElementById('monitorStatus');
         const enableBtn = document.getElementById('enableBtn');
 
-        // --- 1. 啟動監控 ---
+        // --- 1. 啟動監控 (關鍵：解鎖音效與通知) ---
         function startMonitor() {
             if(isMonitorActive) return;
 
-            // 請求通知權限
+            // A. 請求通知權限
             if ("Notification" in window && Notification.permission !== "granted") {
                 Notification.requestPermission();
             }
 
-            // 啟動音效
-            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-            playBeep(0); // 靜音啟動
+            // B. 解鎖瀏覽器音效 (必須在點擊事件中執行)
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            playBeep(0); // 播放一個無聲波，確保音訊通道開啟
 
+            // C. 介面更新
             isMonitorActive = true;
             enableBtn.classList.add('btn-on');
             enableBtn.innerText = ">> 監控中 (每60秒) <<";
             monitorStatus.classList.add('monitor-active');
             monitorStatus.innerText = "AUTO-SCAN: ACTIVE";
 
-            fetchQuake(true);
+            // D. 啟動定時器 (加入隨機數防止快取)
+            fetchQuake(true); // 立即檢查
             autoScanTimer = setInterval(() => {
                 fetchQuake(true);
-            }, 60000);
+            }, 60000); // 60秒
         }
 
         // --- 2. 測試警報 ---
         function testAlert() {
-            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            // 測試時也嘗試解鎖音效
+            if (audioCtx.state === 'suspended') audioCtx.resume();
             triggerAlert({
                 EarthquakeMagnitude: { MagnitudeValue: "TEST" },
-                Epicenter: { Location: "系統測試" }
+                Epicenter: { Location: "測試警報" }
             }, "這是一則測試用的地震警報，確認音效與通知功能是否正常。");
         }
 
-        // --- 3. 發出警報 ---
+        // --- 3. 發出警報 (聲音+通知+視覺) ---
         function triggerAlert(info, content) {
+            // 音效 (嗶三聲)
             playBeep(1);
             setTimeout(() => playBeep(1), 600);
             setTimeout(() => playBeep(1), 1200);
 
+            // 系統通知
             if ("Notification" in window && Notification.permission === "granted") {
                 new Notification(`⚠️ 地震警報 M${info.EarthquakeMagnitude.MagnitudeValue}`, {
                     body: `${info.Epicenter.Location}\n${content.substring(0,30)}...`,
@@ -261,18 +265,19 @@
                 });
             }
 
+            // 視覺閃爍
             document.body.classList.add('alarm-active');
             setTimeout(() => document.body.classList.remove('alarm-active'), 5000);
         }
 
+        // --- 4. 產生電子嗶嗶聲 (Web Audio API) ---
         function playBeep(vol) {
-            if(!audioCtx) return;
             try {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 
-                osc.type = "square";
-                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                osc.type = "square"; // 方波更有警報感
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // 880Hz
                 osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.3);
 
                 gain.gain.setValueAtTime(vol, audioCtx.currentTime);
@@ -286,35 +291,31 @@
             } catch(e) { console.error(e); }
         }
 
-        // --- 初始化 ---
+        // --- 初始化與天氣 ---
         async function init() {
-            try {
-                citySelect.innerHTML = '';
-                CITY_ORDER.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c; opt.text = c;
-                    citySelect.appendChild(opt);
-                });
+            citySelect.innerHTML = '';
+            CITY_ORDER.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.text = c;
+                citySelect.appendChild(opt);
+            });
 
-                const savedCity = localStorage.getItem('lastCity') || "臺北市";
-                const savedDist = localStorage.getItem('lastDist');
-                if (CITY_ORDER.includes(savedCity)) citySelect.value = savedCity;
+            const savedCity = localStorage.getItem('lastCity') || "臺北市";
+            const savedDist = localStorage.getItem('lastDist');
+            if (CITY_ORDER.includes(savedCity)) citySelect.value = savedCity;
 
-                fetchQuake(false); 
-                await loadCityData(citySelect.value, savedDist);
-                
-                citySelect.addEventListener('change', (e) => loadCityData(e.target.value));
-                distSelect.addEventListener('change', (e) => renderWeather(e.target.value));
-            } catch(e) {
-                console.error(e);
-                displayEl.innerHTML = `<div class="error-msg">INIT FAIL: ${e.message}<br>請嘗試重新整理</div>`;
-            }
+            // 初次執行不發警報
+            fetchQuake(false); 
+            await loadCityData(citySelect.value, savedDist);
+            
+            citySelect.addEventListener('change', (e) => loadCityData(e.target.value));
+            distSelect.addEventListener('change', (e) => renderWeather(e.target.value));
         }
 
         // --- 抓地震 ---
         async function fetchQuake(isMonitorMode) {
             try {
-                // 加入時間戳記 t，防止瀏覽器使用舊的快取資料
+                // 重點：加上 t=時間戳記，強制瀏覽器抓新資料，不要用快取
                 const res = await fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${API_KEY}&limit=1&format=JSON&t=${new Date().getTime()}`);
                 const data = await res.json();
                 
@@ -323,8 +324,10 @@
                     const info = q.EarthquakeInfo;
                     const currentNo = q.EarthquakeNo;
 
+                    // 渲染
                     renderQuakeHTML(q);
 
+                    // 判斷是否為新地震 (編號變更)
                     if (isMonitorMode && lastQuakeNo && currentNo !== lastQuakeNo) {
                         triggerAlert(info, q.ReportContent);
                     }
@@ -332,7 +335,7 @@
                     lastQuakeNo = currentNo;
                     localStorage.setItem('lastQuakeNo', currentNo);
                 }
-            } catch(e) { console.warn("Quake fetch skipped"); }
+            } catch(e) { console.warn("Quake fetch skipped", e); }
         }
 
         function renderQuakeHTML(q) {
@@ -351,27 +354,21 @@
             quakeEl.style.display = 'block';
         }
 
-        // --- 抓天氣 ---
+        // --- 天氣功能 ---
         async function loadCityData(cityName, targetDist = null) {
             const dataId = CITY_API_MAP[cityName];
             if(!dataId) return;
+            // 監控模式下不要一直顯示 Loading 閃爍
             if(!isMonitorActive) displayEl.innerHTML = `<div class="blink">DOWNLOADING...</div>`;
             
             try {
                 const res = await fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataId}?Authorization=${API_KEY}&format=JSON&elementName=Wx,T,PoP12h,AT`);
-                if(!res.ok) throw new Error("Network Error");
                 const data = await res.json();
-                
                 if (data.success === "true") {
                     currentCityData = data.records.locations[0].location;
                     populateDistricts(cityName, targetDist);
-                } else {
-                    throw new Error("API Limit");
                 }
-            } catch (err) { 
-                console.error(err);
-                displayEl.innerHTML = `<div class="error-msg">DATA ERROR: 無法取得資料<br>請檢查網路連線</div>`;
-            }
+            } catch (err) { displayEl.innerHTML = "DATA ERROR"; }
         }
 
         function populateDistricts(cityName, targetDist) {
