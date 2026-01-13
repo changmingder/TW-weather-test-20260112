@@ -5,35 +5,436 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <title>TERMINAL_WEATHER_V3.1</title>
+    <title>TERMINAL_WEATHER_V4</title>
     <style>
-        /* --- V3.1: 完整資訊 + 點擊互動版 --- */
+        /* --- V4.0: 監控警報版 --- */
         :root {
             --bg-color: #000000;
-            --weather-color: #00E1FF;  /* 科技藍 */
+            --weather-color: #00E1FF;
             --weather-dim: #006064;    
-            --quake-color: #FF4500;    /* 警示橘紅 */
-            --quake-dim: #8B2500;      
+            --quake-color: #FF4500;
+            --quake-dim: #8B2500;
+            --alert-bg: #330000;      
         }
 
         body {
             background-color: var(--bg-color);
             color: var(--weather-color);
             font-family: "Courier New", Courier, monospace;
-            margin: 0;
-            padding: 15px;
-            font-size: 16px;
-            line-height: 1.4;
+            margin: 0; padding: 15px;
+            font-size: 16px; line-height: 1.4;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            transition: background-color 0.2s;
+            padding-bottom: 60px;
         }
 
-        /* 連結樣式重置 */
+        /* 警報時的背景閃爍特效 */
+        body.alarm-active { animation: red-flash 1s infinite; }
+        @keyframes red-flash {
+            0% { background-color: var(--bg-color); }
+            50% { background-color: var(--alert-bg); }
+            100% { background-color: var(--bg-color); }
+        }
+
         a { text-decoration: none; color: inherit; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; }
 
         header {
             border-bottom: 2px dashed var(--weather-color);
-            padding-bottom: 10px;
-            margin-bottom: 15px;
+            padding-bottom: 10px; margin-bottom: 15px;
+            display: flex; justify-content: space-between; align-items: flex-end;
+        }
+        h1 { font-size: 1.2rem; margin: 0; }
+        
+        /* 系統狀態 */
+        .sys-info { font-size: 0.7rem; color: var(--weather-dim); text-align: right; }
+        .monitor-badge {
+            display: inline-block; font-size: 0.7rem; padding: 2px 6px; 
+            border: 1px solid #333; color: #555; margin-top: 5px; transition: all 0.3s;
+        }
+        .monitor-active {
+            border-color: #00FF00; color: #00FF00;
+            box-shadow: 0 0 8px rgba(0,255,0,0.2);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% {opacity:1;} 50% {opacity:0.6;} 100% {opacity:1;} }
+
+        /* --- 控制按鈕區 --- */
+        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn {
+            flex: 1; padding: 12px;
+            background: #111; color: var(--weather-dim);
+            border: 1px dashed var(--weather-dim);
+            font-family: inherit; font-size: 0.9rem; cursor: pointer;
+            text-transform: uppercase;
+        }
+        .btn:active { background: #222; }
+        /* 啟動後的按鈕樣式 */
+        .btn-on { border-color: #00FF00; color: #00FF00; background: rgba(0,20,0,0.3); }
+
+        /* --- 地震警報區 --- */
+        #quakeArea { 
+            margin-bottom: 20px; display: none; cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .quake-card {
+            display: block; border: 2px solid var(--quake-color); color: var(--quake-color);
+            padding: 15px; position: relative;
+            background: rgba(50, 10, 0, 0.2); box-shadow: 0 0 8px rgba(255, 69, 0, 0.2);
+        }
+        .quake-card:active { transform: scale(0.98); background: rgba(80, 20, 0, 0.3); }
+        .quake-card::before {
+            content: "[ ⚠️ SEISMIC_ALERT // TAP FOR MAP ]";
+            position: absolute; top: -10px; left: 10px;
+            background: var(--bg-color); padding: 0 5px; font-weight: bold; font-size: 0.8rem;
+            border: 1px solid var(--quake-color);
+        }
+        .quake-card::after { content: "↗"; position: absolute; top: 5px; right: 10px; font-size: 1.5rem; opacity: 0.5; }
+        .quake-main { font-size: 1.3rem; font-weight: bold; margin: 8px 0; }
+        .quake-details {
+            font-size: 0.95rem; opacity: 0.9; margin-top: 10px; padding-top: 10px;
+            border-top: 1px dashed var(--quake-dim); line-height: 1.6; white-space: pre-wrap;
+        }
+        .alert-blink { animation: rapid-blink 1.5s infinite; }
+        @keyframes rapid-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* --- 選單與天氣 --- */
+        .control-group { margin-bottom: 15px; }
+        .select-row { display: flex; gap: 10px; }
+        label { display: block; font-size: 0.8rem; margin-bottom: 3px; color: var(--weather-dim); }
+        select {
+            background-color: #051a24; color: var(--weather-color);
+            border: 1px solid var(--weather-color); padding: 10px; width: 100%;
+            font-family: inherit; font-size: 1rem; border-radius: 0; outline: none; -webkit-appearance: none; 
+        }
+        .location-header {
+            font-size: 1.1rem; border-left: 4px solid var(--weather-color);
+            padding-left: 10px; margin: 20px 0 10px 0; color: #fff;
+        }
+        .forecast-card {
+            border: 1px solid var(--weather-dim); padding: 12px; margin-bottom: 12px; position: relative;
+        }
+        .forecast-card::before {
+            content: attr(data-label); position: absolute; top: -10px; right: 10px;
+            background: var(--bg-color); color: var(--weather-dim); padding: 0 5px; font-size: 0.7rem;
+        }
+        .time-badge {
+            display: inline-block; background: var(--weather-dim);
+            color: #000; padding: 1px 5px; font-size: 0.8rem; font-weight: bold;
+        }
+        .weather-main { font-size: 1.3rem; font-weight: bold; margin: 5px 0; }
+        .details {
+            font-size: 0.95rem; color: #B2EBF2; margin-top: 5px; padding-left: 8px;
+            border-left: 1px solid var(--weather-dim);
+        }
+        .highlight { color: #FFF; font-weight: bold; }
+        footer {
+            margin-top: 30px; font-size: 0.7rem; color: var(--weather-dim);
+            text-align: center; border-top: 1px solid #1A4D66; padding-top: 10px;
+        }
+        
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+        .error-msg { color: #FF5555; border: 1px solid #FF5555; padding: 10px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>> WEATHER_OS_V4</h1>
+        <div class="sys-info">
+            SYSTEM: ONLINE<br>
+            <span id="monitorStatus" class="monitor-badge">AUTO-SCAN: OFF</span>
+        </div>
+    </header>
+
+    <div class="btn-group">
+        <button id="enableBtn" class="btn" onclick="startMonitor()">🔊 啟動監控</button>
+        <button class="btn" onclick="testAlert()">🚨 測試警報</button>
+    </div>
+
+    <a id="quakeArea" class="quake-card" href="#" target="_blank"></a>
+
+    <div class="control-group">
+        <div class="select-row">
+            <div style="flex:1">
+                <label>SECTOR (CITY)</label>
+                <select id="citySelect"><option>LOADING...</option></select>
+            </div>
+            <div style="flex:1">
+                <label>SUB-SECTOR (DIST)</label>
+                <select id="distSelect"><option>WAITING...</option></select>
+            </div>
+        </div>
+    </div>
+
+    <div id="displayArea">
+        <div class="blink" style="color:var(--weather-dim)">INITIALIZING SYSTEM...</div>
+    </div>
+
+    <footer>
+        DATA: CWA API | REFRESH: 60s<br>
+        UID: ...BEDC3575
+    </footer>
+
+    <script>
+        const API_KEY = 'CWA-30E05081-14C2-4DAE-831E-2796BEDC3575';
+        
+        // 變數
+        let lastQuakeNo = localStorage.getItem('lastQuakeNo') || "";
+        let isMonitorActive = false;
+        let autoScanTimer = null;
+        
+        // 音效系統
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = new AudioContext();
+
+        const CITY_API_MAP = {
+            "宜蘭縣": "F-D0047-001", "桃園市": "F-D0047-005", "新竹縣": "F-D0047-009",
+            "苗栗縣": "F-D0047-013", "彰化縣": "F-D0047-017", "南投縣": "F-D0047-021",
+            "雲林縣": "F-D0047-025", "嘉義縣": "F-D0047-029", "屏東縣": "F-D0047-033",
+            "臺東縣": "F-D0047-037", "花蓮縣": "F-D0047-041", "澎湖縣": "F-D0047-045",
+            "基隆市": "F-D0047-049", "新竹市": "F-D0047-053", "嘉義市": "F-D0047-057",
+            "臺北市": "F-D0047-061", "高雄市": "F-D0047-065", "新北市": "F-D0047-069",
+            "臺中市": "F-D0047-073", "臺南市": "F-D0047-077", "連江縣": "F-D0047-081",
+            "金門縣": "F-D0047-085"
+        };
+        const CITY_ORDER = [
+            "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣", "苗栗縣", 
+            "臺中市", "彰化縣", "南投縣", "雲林縣", "嘉義市", "嘉義縣", "臺南市", 
+            "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "澎湖縣", "金門縣", "連江縣"
+        ];
+
+        const citySelect = document.getElementById('citySelect');
+        const distSelect = document.getElementById('distSelect');
+        const displayEl = document.getElementById('displayArea');
+        const quakeEl = document.getElementById('quakeArea');
+        const monitorStatus = document.getElementById('monitorStatus');
+        const enableBtn = document.getElementById('enableBtn');
+
+        // --- 1. 啟動監控 (關鍵：解鎖音效與通知) ---
+        function startMonitor() {
+            if(isMonitorActive) return;
+
+            // A. 請求通知權限
+            if ("Notification" in window && Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
+
+            // B. 解鎖瀏覽器音效 (必須在點擊事件中執行)
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            playBeep(0); // 播放一個無聲波，確保音訊通道開啟
+
+            // C. 介面更新
+            isMonitorActive = true;
+            enableBtn.classList.add('btn-on');
+            enableBtn.innerText = ">> 監控中 (每60秒) <<";
+            monitorStatus.classList.add('monitor-active');
+            monitorStatus.innerText = "AUTO-SCAN: ACTIVE";
+
+            // D. 啟動定時器 (加入隨機數防止快取)
+            fetchQuake(true); // 立即檢查
+            autoScanTimer = setInterval(() => {
+                fetchQuake(true);
+            }, 60000); // 60秒
+        }
+
+        // --- 2. 測試警報 ---
+        function testAlert() {
+            // 測試時也嘗試解鎖音效
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            triggerAlert({
+                EarthquakeMagnitude: { MagnitudeValue: "TEST" },
+                Epicenter: { Location: "測試警報" }
+            }, "這是一則測試用的地震警報，確認音效與通知功能是否正常。");
+        }
+
+        // --- 3. 發出警報 (聲音+通知+視覺) ---
+        function triggerAlert(info, content) {
+            // 音效 (嗶三聲)
+            playBeep(1);
+            setTimeout(() => playBeep(1), 600);
+            setTimeout(() => playBeep(1), 1200);
+
+            // 系統通知
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(`⚠️ 地震警報 M${info.EarthquakeMagnitude.MagnitudeValue}`, {
+                    body: `${info.Epicenter.Location}\n${content.substring(0,30)}...`,
+                    icon: 'https://www.cwa.gov.tw/favicon.ico'
+                });
+            }
+
+            // 視覺閃爍
+            document.body.classList.add('alarm-active');
+            setTimeout(() => document.body.classList.remove('alarm-active'), 5000);
+        }
+
+        // --- 4. 產生電子嗶嗶聲 (Web Audio API) ---
+        function playBeep(vol) {
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = "square"; // 方波更有警報感
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // 880Hz
+                osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.3);
+
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } catch(e) { console.error(e); }
+        }
+
+        // --- 初始化與天氣 ---
+        async function init() {
+            citySelect.innerHTML = '';
+            CITY_ORDER.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.text = c;
+                citySelect.appendChild(opt);
+            });
+
+            const savedCity = localStorage.getItem('lastCity') || "臺北市";
+            const savedDist = localStorage.getItem('lastDist');
+            if (CITY_ORDER.includes(savedCity)) citySelect.value = savedCity;
+
+            // 初次執行不發警報
+            fetchQuake(false); 
+            await loadCityData(citySelect.value, savedDist);
+            
+            citySelect.addEventListener('change', (e) => loadCityData(e.target.value));
+            distSelect.addEventListener('change', (e) => renderWeather(e.target.value));
+        }
+
+        // --- 抓地震 ---
+        async function fetchQuake(isMonitorMode) {
+            try {
+                // 重點：加上 t=時間戳記，強制瀏覽器抓新資料，不要用快取
+                const res = await fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${API_KEY}&limit=1&format=JSON&t=${new Date().getTime()}`);
+                const data = await res.json();
+                
+                if (data.records.Earthquake && data.records.Earthquake.length > 0) {
+                    const q = data.records.Earthquake[0];
+                    const info = q.EarthquakeInfo;
+                    const currentNo = q.EarthquakeNo;
+
+                    // 渲染
+                    renderQuakeHTML(q);
+
+                    // 判斷是否為新地震 (編號變更)
+                    if (isMonitorMode && lastQuakeNo && currentNo !== lastQuakeNo) {
+                        triggerAlert(info, q.ReportContent);
+                    }
+                    
+                    lastQuakeNo = currentNo;
+                    localStorage.setItem('lastQuakeNo', currentNo);
+                }
+            } catch(e) { console.warn("Quake fetch skipped", e); }
+        }
+
+        function renderQuakeHTML(q) {
+            const info = q.EarthquakeInfo;
+            const time = new Date(info.OriginTime).toLocaleString('zh-TW', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+            const webUrl = q.Web || "https://www.cwa.gov.tw/V8/C/E/index.html";
+            
+            quakeEl.href = webUrl;
+            quakeEl.innerHTML = `
+                <div style="font-size:0.8rem; margin-bottom:5px; display:flex; justify-content:space-between;">
+                    <span class="alert-blink">⚠️ LATEST REPORT</span>
+                    <span>${time}</span>
+                </div>
+                <div class="quake-main">M${info.EarthquakeMagnitude.MagnitudeValue} | Depth ${info.FocalDepth}km</div>
+                <div class="quake-details">${q.ReportContent}</div>`;
+            quakeEl.style.display = 'block';
+        }
+
+        // --- 天氣功能 ---
+        async function loadCityData(cityName, targetDist = null) {
+            const dataId = CITY_API_MAP[cityName];
+            if(!dataId) return;
+            // 監控模式下不要一直顯示 Loading 閃爍
+            if(!isMonitorActive) displayEl.innerHTML = `<div class="blink">DOWNLOADING...</div>`;
+            
+            try {
+                const res = await fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataId}?Authorization=${API_KEY}&format=JSON&elementName=Wx,T,PoP12h,AT`);
+                const data = await res.json();
+                if (data.success === "true") {
+                    currentCityData = data.records.locations[0].location;
+                    populateDistricts(cityName, targetDist);
+                }
+            } catch (err) { displayEl.innerHTML = "DATA ERROR"; }
+        }
+
+        function populateDistricts(cityName, targetDist) {
+            distSelect.innerHTML = '';
+            const districts = currentCityData.map(loc => loc.locationName);
+            districts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d; opt.text = d;
+                distSelect.appendChild(opt);
+            });
+            if (targetDist && districts.includes(targetDist)) distSelect.value = targetDist;
+            else distSelect.selectedIndex = 0;
+            renderWeather(distSelect.value);
+            localStorage.setItem('lastCity', cityName);
+        }
+
+        function renderWeather(distName) {
+            localStorage.setItem('lastDist', distName);
+            const location = currentCityData.find(l => l.locationName === distName);
+            if (!location) return;
+
+            const elements = {};
+            location.weatherElement.forEach(e => { elements[e.elementName] = e.time; });
+
+            let html = `<div class="location-header">> ${citySelect.value} ${distName}</div>`;
+            const loopLimit = Math.min(3, elements['Wx'] ? elements['Wx'].length : 0);
+
+            for(let i=0; i<loopLimit; i++) {
+                const wxTime = elements['Wx'][i];
+                const startTime = new Date(wxTime.startTime);
+                const d = startTime.getDate().toString().padStart(2,'0');
+                const h = startTime.getHours().toString().padStart(2,'0');
+                const m = startTime.getMinutes().toString().padStart(2,'0');
+                
+                const wx = elements['Wx'][i].elementValue[0].value;
+                const temp = elements['T'][i].elementValue[0].value;
+                const feel = elements['AT'][i].elementValue[0].value;
+                
+                let pop = "0"; 
+                if (elements['PoP12h']) {
+                    const popData = elements['PoP12h'].find(p => {
+                        const pStart = new Date(p.startTime);
+                        const pEnd = new Date(p.endTime);
+                        return (startTime >= pStart && startTime < pEnd) || (pStart >= startTime && pStart < new Date(wxTime.endTime));
+                    });
+                    pop = popData ? popData.elementValue[0].value : "-";
+                    if(pop === " " || pop === "") pop = "0"; 
+                }
+
+                html += `
+                <div class="forecast-card" data-label="+${i*3}HR">
+                    <div class="time-badge">${d}日 ${h}:${m} 起</div>
+                    <div class="weather-main">${wx}</div>
+                    <div class="details">
+                        溫度: <span class="highlight">${temp}°C</span> (體感 ${feel}°C)<br>
+                        降雨機率: <span class="highlight">${pop}%</span>
+                    </div>
+                </div>`;
+            }
+            displayEl.innerHTML = html;
+        }
+
+        init();
+    </script>
+</body>
+</html>
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
