@@ -7,7 +7,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>WEATHER_OS_V6</title>
     <style>
-        /* --- V6.0: 預設台北中山版 --- */
         :root {
             --bg-color: #000000;
             --weather-color: #00E1FF;
@@ -27,7 +26,6 @@
             overflow-x: hidden; padding-bottom: 80px;
         }
 
-        /* 警報閃爍特效 */
         body.alarm-active { animation: red-flash 1s infinite; }
         @keyframes red-flash {
             0% { background-color: var(--bg-color); }
@@ -57,7 +55,6 @@
         }
         @keyframes pulse { 0% {opacity:1;} 50% {opacity:0.6;} 100% {opacity:1;} }
 
-        /* 按鈕區 */
         .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
         .btn {
             flex: 1; padding: 12px;
@@ -69,7 +66,6 @@
         .btn:active { background: #222; transform: translateY(2px); }
         .btn-on { border-color: #00FF00; color: #00FF00; background: rgba(0,20,0,0.3); }
 
-        /* 地震區 */
         #quakeArea { 
             margin-bottom: 20px; display: none; cursor: pointer;
             transition: transform 0.1s;
@@ -95,7 +91,6 @@
         .alert-blink { animation: rapid-blink 1.5s infinite; }
         @keyframes rapid-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        /* 選單區 */
         .control-group { margin-bottom: 15px; }
         label { display: block; font-size: 0.8rem; margin-bottom: 3px; color: var(--weather-dim); }
         .select-row { display: flex; gap: 10px; }
@@ -106,7 +101,6 @@
             font-family: inherit; font-size: 1rem; border-radius: 0; outline: none; -webkit-appearance: none; 
         }
 
-        /* 顯示區 */
         .location-header {
             font-size: 1.1rem; border-left: 4px solid var(--weather-color);
             padding-left: 10px; margin: 20px 0 10px 0; color: #fff;
@@ -183,18 +177,17 @@
         const API_KEY = 'CWA-30E05081-14C2-4DAE-831E-2796BEDC3575';
         
         // ============================
-        // 🛠️ 預設地點設定 (在此修改)
+        // 🛠️ 預設地點設定
         // ============================
         const DEFAULT_CITY = "臺北市";
         const DEFAULT_DIST = "中山區";
 
-        // 系統變數
         let lastQuakeNo = localStorage.getItem('lastQuakeNo') || "";
         let isMonitorActive = false;
         let autoScanTimer = null;
-        let currentCityData = null; // 暫存該縣市資料
+        let currentCityData = null;
+        let loadedCities = {}; // 快取已下載的城市資料
         
-        // 音效系統
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
         try { audioCtx = new AudioContext(); } catch(e) {}
@@ -233,18 +226,22 @@
                     citySelect.appendChild(opt);
                 });
 
-                // 2. 強制設定為預設地點
+                // 2. 設定預設城市（不觸發 change 事件）
                 citySelect.value = DEFAULT_CITY;
 
-                // 3. 雙軌執行：抓地震 + 抓預設城市資料
+                // 3. 背景抓取地震資料（不阻塞主流程）
                 fetchQuake(false); 
-                
-                // 4. 下載資料，並指定預設顯示「中山區」
+
+                // 4. 只下載臺北市資料並顯示中山區
                 await loadCityData(DEFAULT_CITY, DEFAULT_DIST);
 
-                // 5. 綁定選單事件 (手動切換時)
-                citySelect.addEventListener('change', (e) => loadCityData(e.target.value));
-                distSelect.addEventListener('change', (e) => renderWeather(e.target.value));
+                // 5. 綁定選單事件（手動切換時才觸發）
+                citySelect.addEventListener('change', async (e) => {
+                    await loadCityData(e.target.value);
+                });
+                distSelect.addEventListener('change', (e) => {
+                    renderWeather(e.target.value);
+                });
 
             } catch(e) {
                 console.error(e);
@@ -252,16 +249,25 @@
             }
         }
 
-        // --- 核心：下載指定縣市資料 ---
+        // --- 動態載入：只在需要時下載該城市資料 ---
         async function loadCityData(cityName, targetDist = null) {
             const dataId = CITY_API_MAP[cityName];
             if(!dataId) return;
             
-            if(!isMonitorActive) displayEl.innerHTML = `<div class="blink">DOWNLOADING [${cityName}]...</div>`;
+            // 檢查快取：如果已經下載過，直接使用
+            if (loadedCities[cityName]) {
+                console.log(`[CACHE HIT] 使用快取: ${cityName}`);
+                currentCityData = loadedCities[cityName];
+                populateDistricts(cityName, targetDist);
+                return;
+            }
+
+            // 顯示載入狀態
+            displayEl.innerHTML = `<div class="blink">DOWNLOADING [${cityName}]...</div>`;
             distSelect.innerHTML = `<option>LOADING...</option>`;
 
             try {
-                // 下載該縣市「所有」鄉鎮的資料 (最穩定的做法)
+                console.log(`[DOWNLOAD] 正在下載: ${cityName}`);
                 const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/${dataId}?Authorization=${API_KEY}&format=JSON&elementName=Wx,T,PoP12h,AT`;
                 const res = await fetch(url);
                 if(!res.ok) throw new Error("Network Error");
@@ -269,11 +275,13 @@
                 
                 if (data.success === "true") {
                     currentCityData = data.records.locations[0].location;
-                    populateDistricts(cityName, targetDist); // 填入選單並顯示
+                    loadedCities[cityName] = currentCityData; // 存入快取
+                    console.log(`[SUCCESS] ${cityName} 資料已快取`);
+                    populateDistricts(cityName, targetDist);
                 }
             } catch (err) {
                 console.error(err);
-                displayEl.innerHTML = `<div class="error-msg">DATA ERROR: 無法連線</div>`;
+                displayEl.innerHTML = `<div class="error-msg">DATA ERROR: 無法連線 ${cityName}</div>`;
             }
         }
 
@@ -281,7 +289,6 @@
         function populateDistricts(cityName, targetDist) {
             distSelect.innerHTML = '';
             
-            // 產生所有鄉鎮選項
             const districts = currentCityData.map(loc => loc.locationName);
             districts.forEach(d => {
                 const opt = document.createElement('option');
@@ -289,16 +296,13 @@
                 distSelect.appendChild(opt);
             });
 
-            // 智慧選取：
-            // 如果有指定 targetDist (例如中山區) 且存在 -> 選它
-            // 否則 -> 選第一個
+            // 智慧選取
             if (targetDist && districts.includes(targetDist)) {
                 distSelect.value = targetDist;
             } else {
                 distSelect.selectedIndex = 0;
             }
 
-            // 立即顯示天氣
             renderWeather(distSelect.value);
         }
 
@@ -412,7 +416,9 @@
                     lastQuakeNo = currentNo;
                     localStorage.setItem('lastQuakeNo', currentNo);
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.error('地震資料載入失敗:', e);
+            }
         }
 
         function renderQuakeHTML(q) {
